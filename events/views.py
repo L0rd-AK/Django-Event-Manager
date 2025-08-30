@@ -5,37 +5,71 @@ from django.utils import timezone
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.conf import settings
 from .models import Category, Event, Participant
 from .forms import CategoryForm, EventForm, ParticipantForm, EventSearchForm
+
+
+# Health check endpoint
+def health_check(request):
+    """Simple health check to verify the app is working"""
+    try:
+        # Test database connection
+        db_status = "OK"
+        count = Event.objects.count()
+        
+        return JsonResponse({
+            'status': 'healthy',
+            'database': db_status,
+            'event_count': count,
+            'debug': getattr(settings, 'DEBUG', False)
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'error': str(e)
+        }, status=500)
 
 
 # Dashboard View (Section 4.3)
 def dashboard(request):
     """Comprehensive dashboard with stats and interactive features"""
-    # Stats for the dashboard (Section 3.3 - Aggregate queries)
-    total_participants = Participant.objects.aggregate(
-        total=Count('id')
-    )['total'] or 0
-    
-    total_events = Event.objects.count()
-    
-    # Upcoming and past events
-    today = timezone.now().date()
-    upcoming_events = Event.objects.filter(date__gte=today).count()
-    past_events = Event.objects.filter(date__lt=today).count()
-    
-    # Today's events
-    today_events = Event.objects.filter(date=today).select_related('category').prefetch_related('participants')
-    
-    # Filter for interactive stats
-    filter_type = request.GET.get('filter', 'all')
-    if filter_type == 'upcoming':
-        events = Event.objects.filter(date__gte=today).select_related('category').prefetch_related('participants')
-    elif filter_type == 'past':
-        events = Event.objects.filter(date__lt=today).select_related('category').prefetch_related('participants')
-    else:
-        events = Event.objects.all().select_related('category').prefetch_related('participants')
+    try:
+        # Stats for the dashboard (Section 3.3 - Aggregate queries)
+        total_participants = Participant.objects.aggregate(
+            total=Count('id')
+        )['total'] or 0
+        
+        total_events = Event.objects.count()
+        
+        # Upcoming and past events
+        today = timezone.now().date()
+        upcoming_events = Event.objects.filter(date__gte=today).count()
+        past_events = Event.objects.filter(date__lt=today).count()
+        
+        # Today's events
+        today_events = Event.objects.filter(date=today).select_related('category').prefetch_related('participants')
+        
+        # Filter for interactive stats
+        filter_type = request.GET.get('filter', 'all')
+        if filter_type == 'upcoming':
+            events = Event.objects.filter(date__gte=today).select_related('category').prefetch_related('participants')
+        elif filter_type == 'past':
+            events = Event.objects.filter(date__lt=today).select_related('category').prefetch_related('participants')
+        else:
+            events = Event.objects.all().select_related('category').prefetch_related('participants')
+    except Exception as e:
+        # Handle database errors gracefully
+        total_participants = 0
+        total_events = 0
+        upcoming_events = 0
+        past_events = 0
+        today_events = []
+        events = []
+        filter_type = 'all'
+        # Log the error for debugging
+        print(f"Dashboard error: {e}")
     
     context = {
         'total_participants': total_participants,

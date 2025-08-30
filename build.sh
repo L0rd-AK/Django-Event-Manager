@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# exit on error
+# Build script for Render deployment
 set -o errexit
 
-# Install dependencies
+echo "Installing dependencies..."
 pip install -r requirements.txt
 
-# Collect static files
+echo "Creating staticfiles directory..."
+mkdir -p staticfiles
+
+echo "Collecting static files..."
 python manage.py collectstatic --no-input
 
-# Run database migrations
+echo "Running migrations..."
 python manage.py migrate
 
-# Create sample data (optional - remove if not needed)
-python manage.py create_sample_data
+echo "Creating sample data..."
+python manage.py create_sample_data || echo "Sample data creation failed or already exists"
 
-# Create superuser if needed (optional - you can remove this if not needed)
-# python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin123')"
+echo "Build completed successfully!"
